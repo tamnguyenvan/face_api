@@ -9,6 +9,9 @@ STAGE=prod python api.py
 STAGE=dev python api.py
 ```
 
+## Setup face recognition database
+You can edit face images folder of the face recognition in config file `face_recognition.database.dir`.
+
 ## API
 All inferences only accept `multipart/form-data` inputs.
 |Path|Method|Description|
