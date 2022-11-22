@@ -1,0 +1,24 @@
+api:
+  lazy_load: false  # initializes all models at boot time
+  assets: assets
+
+face_recognition:
+  model_name: Facenet
+  database:
+    dir: ./facerec_data
+    type: image
+
+face_verification:
+  model_name: Facenet
+
+face_analysis:
+  model_name: Facenet
+
+face_detection:
+  model_name: opencv
+
+realtime_stream:
+  model_name: Facenet
+  database:
+    dir: ./stream_data
+    type: image
