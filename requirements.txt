@@ -2,3 +2,4 @@ deepface
 flask
 pyyaml
 easydict
+gunicorn
