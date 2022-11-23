@@ -1,11 +1,10 @@
 import numpy as np
 from flask import Flask, request
+from easydict import EasyDict
 from deepface import DeepFace
 
-from configs import cfg
-from face_api.logger import logger
-from face_api.utils import initialize_env
-from face_api.utils import FileManager
+from configs import cfg, translate
+from face_api.utils import initialize_env, File, str2bool
 
 
 initialize_env()
@@ -24,9 +23,18 @@ def verify():
         file1 = request.files['file1']
         file2 = request.files['file2']
 
-        result = DeepFace.verify(FileManager.get(file1), FileManager.get(file2))
-        FileManager.clean(file1)
-        FileManager.clean(file1)
+        facever_cfg = cfg.to_easydict().face_verification
+
+        file1 = File(file1)
+        file2 = File(file2)
+        result = DeepFace.verify(
+            img1_path=file1.name,
+            img2_path=file2.name,
+            model_name=translate(cfg, facever_cfg.model),
+            distance_metric=translate(cfg, facever_cfg.distance_metric),
+            detector_backend=translate(cfg, facever_cfg.detector_backend))
+        file1.clean()
+        file2.clean()
         if result:
             return {
                 'status': 'ok',
@@ -51,13 +59,15 @@ def verify():
 def recognize():
     if request.files:
         file = request.files['file']
-        file_path = FileManager.get(file)
-        facerec_cfg = cfg.face_recognition
+        file = File(file)
+        facerec_cfg = cfg.to_easydict().face_recognition
         result = DeepFace.find(
-            img_path=file_path,
+            img_path=file.name,
             db_path=facerec_cfg.database.dir,
-            model_name=facerec_cfg.model_name)
-        FileManager.clean(file)
+            model_name=translate(cfg, facerec_cfg.model),
+            distance_metric=translate(cfg, facerec_cfg.distance_metric),
+            detector_backend=translate(cfg, facerec_cfg.detector_backend))
+        file.clean()
 
         values = result.values
         if len(values):
@@ -97,11 +107,14 @@ def analysis():
 def detect():
     if request.files:
         file = request.files['file']
-        file_path = FileManager.get(file)
+        file = File(file)
+        facedet_cfg = cfg.to_easydict().face_detection
+        backend = facedet_cfg.detector_backend
+        backend = backend + '_det' if backend == 'dlib' else backend
         result = DeepFace.detectFace(
-            file_path,
-            detector_backend=cfg.face_detection.model_name)
-        FileManager.clean(file)
+            file.name,
+            detector_backend=translate(cfg, backend))
+        file.clean()
 
         if isinstance(result, np.ndarray) and len(result):
             results = {
@@ -125,8 +138,25 @@ def detect():
 
 @app.route('/v1/stream', methods=['POST'])
 def stream():
-    result = DeepFace.stream(cfg.realtime_stream.database.dir, source='')
+    stream_cfg = cfg.to_easydict().realtime_stream
+    result = DeepFace.stream(stream_cfg.database.dir, source='')
     return 'ok'
+
+
+@app.route('/v1/change-settings', methods=['POST', 'GET'])
+def change_settings():
+    args = request.args
+    result = cfg.update_cfg(args)
+    save_cfg = str2bool(args.get('save', True))
+    if save_cfg:
+        cfg.save()
+    cfg.reload()
+
+    results = {
+        'status': 'ok',
+        'data': result,
+    }
+    return results
 
 
 if __name__ == '__main__':

@@ -1,3 +1,4 @@
+import tempfile
 import os
 
 from werkzeug.utils import secure_filename
@@ -12,9 +13,12 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 
 
 def initialize_env():
-    if not cfg.api.lazy_load:
+    ecfg = cfg.to_easydict()
+
+    # ecfg = EasyDict(cfg)
+    if not ecfg.api.lazy_load:
         logger.info('Setting enviroment...')
-        assets_dir = os.path.abspath(cfg.api.assets)
+        assets_dir = os.path.abspath(ecfg.api.assets)
         img1_path = os.path.join(assets_dir, 'face1.jpg')
         img2_path = os.path.join(assets_dir, 'face2.jpg')
 
@@ -24,10 +28,10 @@ def initialize_env():
 
         # initialize face recognition
         logger.info('Dry run face recognition')
-        database_dir = cfg.face_recognition.database.dir
+        database_dir = ecfg.face_recognition.database.dir
         if not os.path.isdir(database_dir):
             raise FileNotFoundError('Not found face recognition database')
-        DeepFace.find(img1_path, database_dir, model_name=cfg.face_recognition.model_name)
+        # DeepFace.find(img1_path, database_dir, model_name=ecfg.face_recognition.model)
 
         # initialize face analyssi
         logger.info('Dry run face analysis')
@@ -35,10 +39,10 @@ def initialize_env():
 
         # initialize face detection
         logger.info('Dry run face detection')
-        # DeepFace.detectFace(img1_path, detector_backend=cfg.face_detection.model_name)
+        # DeepFace.detectFace(img1_path, detector_backend=ecfg.face_detection.model_name)
 
         logger.info('Dry run stream')
-        database_dir = cfg.realtime_stream.database.dir
+        database_dir = ecfg.realtime_stream.database.dir
         if not os.path.isdir(database_dir):
             raise FileNotFoundError('Not found real-time stream database')
 
@@ -52,19 +56,22 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-class FileManager:
-
-    @classmethod
-    def get(cls, file):
+class File:
+    def __init__(self, file):
+        self.name = ''
+        self.f = None
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
-            file.save(file_path)
-            return file_path
+            self.f = tempfile.NamedTemporaryFile(mode='wb', suffix='face_api', delete=False)
+            file.save(self.f.name)
+            self.name = self.f.name
 
-    @classmethod
-    def clean(cls, file):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        if file_path and os.path.isfile(file_path):
-            os.remove(file_path)
+    def clean(self):
+        if self.name and self.f and os.path.isfile(self.name):
+            # self.f.close()
+            os.remove(self.name)
+
+
+def str2bool(x):
+    if str(x).lower() == 'true' or str(x) == '1':
+        return True
+    return False
