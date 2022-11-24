@@ -1,0 +1,89 @@
+{
+    "api": {
+        "lazy-load": true
+    },
+    "endpoints": {
+        "face-verification": {
+            "model": "Dlib",
+            "detector-backend": "ssd",
+            "distance-metric": "cosine",
+            "enforce-detection": true
+        },
+        "face-recognition": {
+            "model": "Facenet",
+            "db-path": "",
+            "detector-backend": "retinaface",
+            "distance-metric": "cosine",
+            "enforce-detection": true
+        },
+        "face-detection": {
+            "detector-backend": "retinaface",
+            "enforce-detection": true
+        }
+    },
+    "options": {
+        "face-verification": {
+            "model": [
+                "Facenet",
+                "OpenFace",
+                "DeepID",
+                "Dlib",
+                "ArcFace"
+            ],
+            "detector-backend": [
+                "retinaface",
+                "mtcnn",
+                "opencv",
+                "ssd",
+                "dlib"
+            ],
+            "distance-metric": [
+                "cosine",
+                "euclidean",
+                "euclidean_l2"
+            ],
+            "enforce-detection": [
+                true,
+                false
+            ]
+        },
+        "face-recognition": {
+            "model": [
+                "Facenet",
+                "OpenFace",
+                "DeepID",
+                "Dlib",
+                "ArcFace"
+            ],
+            "detector-backend": [
+                "retinaface",
+                "mtcnn",
+                "opencv",
+                "ssd",
+                "dlib"
+            ],
+            "distance-metric": [
+                "cosine",
+                "euclidean",
+                "euclidean_l2"
+            ],
+            "enforce-detection": [
+                true,
+                false
+            ]
+        },
+        "face-detection": {
+            "detector-backend": [
+                "retinaface",
+                "mtcnn",
+                "opencv",
+                "ssd",
+                "dlib"
+            ],
+            "enforce-detection": [
+                true,
+                false
+            ]
+        }
+    }
+}

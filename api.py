@@ -1,10 +1,13 @@
+import base64
+
+import cv2
 import numpy as np
 from flask import Flask, request
-from easydict import EasyDict
 from deepface import DeepFace
 
-from configs import cfg, translate
+from configs import cfg
 from face_api.utils import initialize_env, File, str2bool
+from face_api.exceptions import VerificationError, RecognitionError, DetectionError
 
 
 initialize_env()
@@ -20,21 +23,39 @@ def index():
 @app.route('/v1/verify', methods=['POST'])
 def verify():
     if request.files:
+        if 'file1' not in request.files or 'file2' not in request.files:
+            return {
+                'status': 'failed',
+                'data': [],
+                'message': 'Request is missing either `file1` or `file2`'
+            }
         file1 = request.files['file1']
         file2 = request.files['file2']
 
-        facever_cfg = cfg.to_easydict().face_verification
+        facever_cfg = cfg['endpoints']['face-verification']
 
         file1 = File(file1)
         file2 = File(file2)
-        result = DeepFace.verify(
-            img1_path=file1.name,
-            img2_path=file2.name,
-            model_name=translate(cfg, facever_cfg.model),
-            distance_metric=translate(cfg, facever_cfg.distance_metric),
-            detector_backend=translate(cfg, facever_cfg.detector_backend))
-        file1.clean()
-        file2.clean()
+        try:
+            result = DeepFace.verify(
+                img1_path=file1.name,
+                img2_path=file2.name,
+                model_name=facever_cfg['model'],
+                distance_metric=facever_cfg['distance-metric'],
+                detector_backend=facever_cfg['detector-backend'],
+                enforce_detection=facever_cfg['enforce-detection'])
+        except VerificationError:
+            file1.clean()
+            file2.clean()
+            return {
+                'status': 'failed',
+                'data': [],
+                'message': 'Internal sever error'
+            }
+        finally:
+            file1.clean()
+            file2.clean()
+
         if result:
             return {
                 'status': 'ok',
@@ -58,16 +79,33 @@ def verify():
 @app.route('/v1/recognize', methods=['POST'])
 def recognize():
     if request.files:
+        if 'file' not in request.files:
+            return {
+                'status': 'failed',
+                'data': [],
+                'message': 'Request is missing `file`'
+            }
         file = request.files['file']
         file = File(file)
-        facerec_cfg = cfg.to_easydict().face_recognition
-        result = DeepFace.find(
-            img_path=file.name,
-            db_path=facerec_cfg.database.dir,
-            model_name=translate(cfg, facerec_cfg.model),
-            distance_metric=translate(cfg, facerec_cfg.distance_metric),
-            detector_backend=translate(cfg, facerec_cfg.detector_backend))
-        file.clean()
+        facerec_cfg = cfg['endpoints']['face-recognition']
+
+        try:
+            result = DeepFace.find(
+                img_path=file.name,
+                db_path=facerec_cfg['db-path'],
+                model_name=facerec_cfg['model'],
+                distance_metric=facerec_cfg['distance_metric'],
+                detector_backend=facerec_cfg['detector_backend'],
+                enforce_detection=facerec_cfg['enforce_detection'])
+        except RecognitionError:
+            file.clean()
+            return {
+                'status': 'failed',
+                'data': [],
+                'message': 'Internal sever error'
+            }
+        finally:
+            file.clean()
 
         values = result.values
         if len(values):
@@ -106,27 +144,48 @@ def analysis():
 @app.route('/v1/detect', methods=['POST'])
 def detect():
     if request.files:
+        if 'file' not in request.files:
+            return {
+                'status': 'failed',
+                'data': [],
+                'message': 'Request is missing `file`'
+            }
+
         file = request.files['file']
         file = File(file)
-        facedet_cfg = cfg.to_easydict().face_detection
-        backend = facedet_cfg.detector_backend
-        backend = backend + '_det' if backend == 'dlib' else backend
-        result = DeepFace.detectFace(
-            file.name,
-            detector_backend=translate(cfg, backend))
-        file.clean()
+        facedet_cfg = cfg['endpoints']['face-detection']
+
+        try:
+            print(facedet_cfg)
+            result = DeepFace.detectFace(
+                file.name,
+                detector_backend=facedet_cfg['detector-backend'],
+                enforce_detection=facedet_cfg['enforce-detection'])
+        except DetectionError:
+            file.clean()
+            return {
+                'status': 'failed',
+                'data': [],
+                'message': 'Internal sever error'
+            }
+        finally:
+            file.clean()
 
         if isinstance(result, np.ndarray) and len(result):
+            restored_face = np.clip(result * 255, 0, 255).astype(np.uint8)
+            encoded = cv2.imencode('.jpeg', restored_face)[1]
+            b64img = base64.b64encode(encoded).decode('utf-8')
+
             results = {
                 'status': 'ok',
-                'data': result.tolist()
+                'data': b64img
             }
             return results
 
         return {
             'status': 'error',
             'data': [],
-            'message': 'could not detect the given face'
+            'message': 'could not detect face in given image'
         }
 
     return {

@@ -3,3 +3,4 @@ flask
 pyyaml
 easydict
 gunicorn
+dlib
