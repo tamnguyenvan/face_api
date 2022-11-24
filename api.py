@@ -45,7 +45,7 @@ def verify():
                 distance_metric=args['distance-metric'] if args['distance-metric'] else facever_cfg['distance-metric'],
                 detector_backend=args['detector-backend'] if args['detector-backend'] else facever_cfg['detector-backend'],
                 enforce_detection=args['enforce-detection'] == 'true' if args['enforce-detection'] else facever_cfg['enforce-detection'])
-        except VerificationError:
+        except Exception:
             file1.clean()
             file2.clean()
             return {
@@ -98,7 +98,7 @@ def recognize():
                 distance_metric=facerec_cfg['distance_metric'],
                 detector_backend=facerec_cfg['detector_backend'],
                 enforce_detection=facerec_cfg['enforce_detection'])
-        except RecognitionError:
+        except Exception:
             file.clean()
             return {
                 'status': 'failed',
@@ -164,7 +164,7 @@ def detect():
                 file.name,
                 detector_backend=detector_backend,
                 enforce_detection=enforce_detection)
-        except DetectionError:
+        except Exception:
             file.clean()
             return {
                 'status': 'failed',
