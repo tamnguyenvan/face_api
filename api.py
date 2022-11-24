@@ -33,6 +33,7 @@ def verify():
         file2 = request.files['file2']
 
         facever_cfg = cfg['endpoints']['face-verification']
+        args = request.args
 
         file1 = File(file1)
         file2 = File(file2)
@@ -40,10 +41,10 @@ def verify():
             result = DeepFace.verify(
                 img1_path=file1.name,
                 img2_path=file2.name,
-                model_name=facever_cfg['model'],
-                distance_metric=facever_cfg['distance-metric'],
-                detector_backend=facever_cfg['detector-backend'],
-                enforce_detection=facever_cfg['enforce-detection'])
+                model_name=args['model'] if args['model'] else facever_cfg['model'],
+                distance_metric=args['distance-metric'] if args['distance-metric'] else facever_cfg['distance-metric'],
+                detector_backend=args['detector-backend'] if args['detector-backend'] else facever_cfg['detector-backend'],
+                enforce_detection=args['enforce-detection'] == 'true' if args['enforce-detection'] else facever_cfg['enforce-detection'])
         except VerificationError:
             file1.clean()
             file2.clean()
@@ -155,12 +156,14 @@ def detect():
         file = File(file)
         facedet_cfg = cfg['endpoints']['face-detection']
 
+        args = dict(request.args)
+        detector_backend = args['detector-backend'] if args.get('detector-backend') else facedet_cfg['detector-backend']
+        enforce_detection = args['enforce-detection'] == 'true' if args.get('enforce-detection') else facedet_cfg['enforce-detection']
         try:
-            print(facedet_cfg)
             result = DeepFace.detectFace(
                 file.name,
-                detector_backend=facedet_cfg['detector-backend'],
-                enforce_detection=facedet_cfg['enforce-detection'])
+                detector_backend=detector_backend,
+                enforce_detection=enforce_detection)
         except DetectionError:
             file.clean()
             return {
@@ -178,7 +181,12 @@ def detect():
 
             results = {
                 'status': 'ok',
-                'data': b64img
+                'data': {
+                    'image': b64img,
+                    'dtype': 'base64',
+                    'detector-backend': detector_backend,
+                    'enforce-detection': enforce_detection
+                }
             }
             return results
 
